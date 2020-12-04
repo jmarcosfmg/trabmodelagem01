@@ -33,13 +33,10 @@ arr_tempos_chegada = []
 arr_tempos_chegada_mean = []
 arr_tamanhos_fila = []
 arr_tamanhos_fila_mean = []
-arr_relogios = []
-arr_relogios_chegada = []
-arr_relogios_saida = []
 
 def mostra_menu(estado = None):
 	global tec_det, ts_det, tam_max_fila
-	print("Menu:")
+	print("\n\nMenu:")
 	while True:
 		print("O Tempo entre chegadas (TEC) é determinístico? [S/N]")
 		x = input().upper()
@@ -67,6 +64,7 @@ def mostra_menu(estado = None):
 					erro("Insira um número >= 0.")
 		if (x == "N" or x == "S"):
 			break
+	print("")
 
 def ler_entradas():
 	global arr_entradas
@@ -74,9 +72,9 @@ def ler_entradas():
 	if (not(tec_det or ts_det)): 
 		print(" da seguinte forma: TEC [ESPAÇO] TS", end="")
 	elif (not tec_det):
-		print("TEC", end="")
+		print(" TEC", end="")
 	elif (not ts_det):
-		print("TS", end="")
+		print(" TS", end="")
 	print(", seguidos pela tecla ENTER.")
 	print("Para finalizar a inserção dos dados, digite 'done' e aperte ENTER")
 	valor_informado = input()
@@ -87,48 +85,85 @@ def ler_entradas():
 				tec_, ts_ = valor_informado.split(' ')
 				tec_ = float(tec_.strip())
 				ts_ = float(ts_.strip())
+				if(tec_ <= 0 or ts_ <= 0):
+					raise TypeError() 
 				arr_entradas.append((tec_,ts_))
 			except:
-				warning("Os tempos entre chegadas e o tempo de serviço devem ser valores numérico.")
+				warning("Os tempos entre chegadas e o tempo de serviço devem ser valores numéricos > 0.")
 		elif(not tec_det):
 			try:
 				tec_ = float(valor_informado)
+				if(tec_ <= 0):
+					raise TypeError() 
 				arr_entradas.append(tec_)
 			except:
-				warning("O tempo entre chegadas deve ser um valor numérico.")
+				warning("O tempo entre chegadas deve ser um valor numérico > 0.")
 				continue
 		else:
 			try:
 				ts_ = float(valor_informado)
+				if(ts_ <= 0):
+					raise TypeError() 
 				arr_entradas.append(ts_)
 			except:
-				warning("O tempo de serviço deve ser um valor numérico.")
+				warning("O tempo de serviço deve ser um valor numérico > 0.")
 		valor_informado = input()
 
 def ler_det():
 	global arr_prob_tec, arr_prob_ts
 	warning("Os valores devem preenchidos usando o tempo.\nPor exemplo: Se 15 carros chegam por hora, o TEC deve ser 4 (se o tempo for contado em minutos) ou 0.06 (se for contado em horas)."+
 	"\n A escala de tempo deve ser a mesma no TEC e no TS.")
+	media = 0
 	while(tec_det):
 		print("Insira o TEC: ", end="")
 		try:
 			valor_informado = float(input())
 			if(valor_informado <= 0.0):
 				raise TypeError("Insira um número >= 0.") 
-			arr_prob_tec = [[[valor_informado, valor_informado], valor_informado, 1.0]]
+			media = valor_informado
 			break
 		except:
 			erro("O valor do TEC deve ser numérico e maior que 0.")	
+	while(tec_det):
+		print("Insira o tipo de distribuicao [normal, exponencial ou poisson]: ", end="")
+		try:
+			valor_informado = input().strip().lower()
+			if(valor_informado == "normal"):
+				arr_prob_tec = distribuicao_normal(media)
+			elif(valor_informado == "exponencial"):
+				arr_prob_tec = distribuicao_exponencial(media)
+			elif(valor_informado == "poisson"):
+				arr_prob_tec = distribuicao_poisson(media)
+			else:
+				raise TypeError("Opcoes invalidas") 
+			break
+		except:
+			erro("Opção inválida")	
 	while(ts_det):
 		print("Insira o TS: ", end="")
 		try:
 			valor_informado = float(input())
 			if(valor_informado <= 0.0):
 				raise TypeError("Insira um número >= 0.") 
-			arr_prob_ts = [[[valor_informado, valor_informado], valor_informado, 1.0]]
+			media = valor_informado
 			break
 		except:
 			erro("O valor do TS deve ser numérico e maior que 0.")
+	while(ts_det):
+		print("Insira o tipo de distribuicao [normal, exponencial ou poisson]: ", end="")
+		try:
+			valor_informado = input().strip().lower()
+			if(valor_informado == "normal"):
+				arr_prob_ts = distribuicao_normal(media)
+			elif(valor_informado == "exponencial"):
+				arr_prob_ts = distribuicao_exponencial(media)
+			elif(valor_informado == "poisson"):
+				arr_prob_ts = distribuicao_poisson(media)
+			else:
+				raise TypeError("Opcoes invalidas") 
+			break
+		except:
+			erro("Opção inválida")	
 
 def cria_probabilidades_amostral():
 	global arr_prob_tec, arr_prob_ts
@@ -155,7 +190,11 @@ def gera_classes_prob(arr_valores):
 	occour_arr.sort(key = lambda x: x[2])
 	for val in range(1, len(occour_arr)):
 		occour_arr[val][2] += occour_arr[val-1][2]
-	print(occour_arr)
+	print("\nTabela de probabilidade acumulada:")
+	print("  Intervalo\t\t| Media  | Probabilidade Acumulada")
+	for pr in occour_arr:
+		print("[{:.4f}],[{:.4f}] \t| {:.4f} |\t {:.4f}".format(pr[0][0], pr[0][1], pr[1], pr[2]))
+	print("")
 	return occour_arr
 
 def remove_outliers(x, outlierConstant = 1.5):
@@ -185,6 +224,29 @@ def warning(str):
 
 def erro(str):
 	print("Erro! ",str)
+
+def distribuicao_normal(media):
+	desvio = -1
+	while True:
+		print("Informe o desvio padrão: ", end="")
+		try:
+			desvio = float(input().strip())
+			if(desvio < 0):
+				raise TypeError
+			break
+		except:
+			erro("O desvio padrão deve ser um valor numérico >= 0")
+	s = np.random.normal(media, desvio, 200)
+	return gera_classes_prob(s)
+
+def distribuicao_exponencial(media):
+	s = np.random.exponential(media, 200)
+	return gera_classes_prob(s)
+
+def distribuicao_poisson(media):
+	rng = np.random.default_rng()
+	s = rng.poisson(media, 200)
+	return gera_classes_prob(s)
 
 def chegada():
 	global relogio, servidor_em_atendimento, num_cliente, relogio_hc, arr_fila, relogio_hs,cliente_em_atendimento, ultima_chegada
@@ -226,7 +288,14 @@ ultimo_ts = 0.0
 ultimo_tf = 0.0
 def registra_evento(tipo, num_cliente, relogio, chegada, saida="", tempo_servico="", tempo_fila="", tec=""):
 	global ultimo_tec, ultimo_ts, ultimo_tf
-	arr_relogios.append(relogio)
+	verifica_tamanho(arr_tamanhos_fila)
+	verifica_tamanho(arr_tamanhos_fila_mean)
+	verifica_tamanho(arr_tempos_atendimento)
+	verifica_tamanho(arr_tempos_atendimento_mean)
+	verifica_tamanho(arr_tempos_espera)
+	verifica_tamanho(arr_tempos_espera_mean)
+	verifica_tamanho(arr_tempos_chegada)
+	verifica_tamanho(arr_tempos_chegada_mean)
 	arr_tamanhos_fila.append(len(arr_fila))
 	arr_tamanhos_fila_mean.append(np.mean(arr_tamanhos_fila))
 	if (tempo_servico != ""):
@@ -246,6 +315,10 @@ def registra_evento(tipo, num_cliente, relogio, chegada, saida="", tempo_servico
 	else:
 		buffer_csv.append((round(relogio, 4), tipo, num_cliente, len(arr_fila), round(chegada,4), saida, tempo_servico, tempo_fila))
 		despeja_csv()
+
+def verifica_tamanho(self):
+	if(len(self) > 150):
+		self.pop(0)
 
 def despeja_csv():
 	global nome_arquivo
@@ -295,7 +368,6 @@ ax1 = plt.subplot2grid((10,2),(5,0), rowspan=6, colspan=1)
 ax2 = plt.subplot2grid((10,2),(0,0), rowspan=4, colspan=1)
 ax3 = plt.subplot2grid((10,2),(0,1), rowspan=4, colspan=1)
 ax4 = plt.subplot2grid((10,2),(5,1), rowspan=6, colspan=1)
-ani = animation.FuncAnimation(fig, animate, interval=100)
 
 class ThreadingExample(object):
 
@@ -319,11 +391,12 @@ if __name__ == "__main__":
 	if(not (tec_det and ts_det)):
 		ler_entradas()
 		cria_probabilidades_amostral()
-	elif(tec_det or ts_det):
+	if(tec_det or ts_det):
 		ler_det()
 	t = ThreadingExample()
+	ani = animation.FuncAnimation(fig, animate, interval=100)
 	plt.show()
 	despeja_csv()
-	t.stop()
+	print("Os resultados da simulação estão disponíveis no arquivo", nome_arquivo)
 	pass
 	
