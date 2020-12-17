@@ -316,15 +316,15 @@ class ThreadingExample(object):
 if __name__ == "__main__":
 	relogio = 0.0
 	mostra_menu()
-	if(not (tec_det and ts_det)):
-		ler_entradas()
-		cria_probabilidades_amostral()
-	if(tec_det or ts_det):
-		ler_det()
+	ler_det()
 	t = ThreadingExample()
 	ani = animation.FuncAnimation(fig, animate, interval=100)
 	plt.show()
 	despeja_csv()
+	print("Tempo médio de atendimento =",arr_tempos_atendimento_mean[-1])
+	print("tamanho médio da fila =",arr_tamanhos_fila_mean[-1])
+	print("Tempo médio entre chegadas", arr_tempos_chegada_mean[-1])
+	print("Tempo médio de espera =", arr_tempos_espera_mean[-1])
 	print("Os resultados da simulação estão disponíveis no arquivo", nome_arquivo)
 	pass
 	
