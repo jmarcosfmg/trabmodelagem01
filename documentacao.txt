@@ -1,0 +1,79 @@
+# INFO: O programa faz uso do método de Monte Carlo para a simulação de eventos de chegada e saída em modelos # M/M/1, com filas com e sem limite
+
+# Aluno: Joao Marcos de Freitas Moreira Gomes
+# Matricula: 1611BCC043
+
+
+################################################################
+VARIÁVEIS GLOBAIS
+
+relogio: guarda o tempo decorrido do início ao fim da simulação
+relogio_hc: guarda o período calculado para a próxima chegada
+relógio_hs: guarda o período calculado para a próxima saida
+ultima_chegada: guarda a ultima chegada registrada no sistema, usado para o calculo do TEC 
+tec_det: variavel de controle sobre o TEC (True = deterministico e False = aleatorio)
+ts_det: variavel de controle sobre o TS (True = deterministico e False = aleatorio)
+servidor_em_atendimento: variavel de controle que define se o cliente deve aguardar na fila ou pode ser prontamente atendido
+num_cliente: contador iterativo para identificacao dos clientes
+tam_max_fila: variavel de controle para sistemas com fila de capacidade definida (default= INF)
+arr_entradas: variavel que guarda as informacoes TEC e TS coletadas pelo usuario
+arr_fila: guarda os clientes que estao aguardando atendimento
+arr_prob_tec: guarda a tabela de probabilidades de TEC
+arr_prob_ts: guarda a tabela de probabilidades de TS
+buffer_csv: guarda as simulacoes que estao prontas para serem guardadas em arquivo
+nome_arquivo: nome do arquivo '.csv' gerado. Possui o formato 'trabalho01_MS_[DIA]__[HORA].csv'
+cliente_em_atendimento: cliente em atendimento no momento atual da simulacao
+
+##############################################
+arr_tempos_espera, arr_tempos_espera_mean,                        #
+arr_tempos_atendimento, arr_tempos_atendimento_mean   #   arrays com capacidade maxima = 200, usados na exibição dos gráficos
+arr_tempos_chegada, arr_tempos_chegada_mean,                 #
+arr_tamanhos_fila, arr_tamanhos_fila_mean:                              #
+##############################################
+
+
+################################################################
+FUNCOES
+
+mostra_menu: Exibe o menu e coleta as informações: limite da fila (se existir),  tempo de chegadas determinístico e tempo de serviço deterministico
+
+ler_entradas: Coleta as amostras do usuário, para os dados que não são determinísticos
+
+ler_det: Coleta as informações sobre a média, desvio padrão e tipo de distribuição dos dados determinísticos
+
+cria_probabilidades_amostral: Chama a classe gera_classes_prob para criar a tabela de probabilidade acumuladada
+
+gera_classes_prob: Com base em uma amostra, cria a tabela de probabilidades acumuladas
+
+remove_outliers: Função para limpeza de dados que remove dados discrepantes
+
+simula_evento: Função principal que gera um valor aleatório para o retornar um TEC ou TS de acordo com a tabela de probabilidades acumuladas
+
+verifica_classe: Tendo uma tabela de probabilidades acumuladas e um valor entre 0 e 1, verifica em qual classe o valor se encontra, de acordo com a probabilidade
+
+warning e erro: Funções auxiliares para log de avisos e erros
+
+distribuicao_normal: Calcula a tabela de probabilidades de uma distribuição normal ao redor da média com base em 200 simulações 
+
+distribuicao_exponencial: Calcula a tabela de probabilidades de uma distribuição exponencial ao redor da média com base em 200 simulações 
+
+distribuicao_poisson: Calcula a tabela de probabilidades de uma distribuição de poisson ao redor da média com base em 200 simulações 
+
+chegada: Registra um evento de chegada e calcula o horário do próximo. Se o atendente não estiver ocupado, ele passa a atender o cliente, senão, o cliente deve esperar na fila.
+
+saida:  Registra um evento de saída e calcula o horário do próximo. Se a fila estiver vazia, o atendente fica desocupado e o horário da próxima saída é marcado como INF, senão, o atendente passa a atender o próximo da fila.
+
+registra_evento: Adiciona os eventos de entrada e saída nos arrays dos gráficos e calcula suas médias. Caso o buffer_csv esteja cheio, guarda as informações dos últimos eventos no disco, senão, acrescenta o evento ao buffer para posterior escrita
+
+verifica_tamanho: Variavel auxiliar que delimita os eventos apresentados no gráfico em no máximo 200
+
+despeja_csv: Escreve os elementos do buffer_csv em disco
+
+atende:  Verifica, de acordo com o relógio, se o evento atual é de chegada ou se é de saída
+
+animate: Função que atualiza os valores que estão sendo apresentados nos gráficos
+
+ThreadingExample: Classe que chama a função atende em uma nova thread, dando início à simulação
+
+#####################################################################################
+
