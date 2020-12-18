@@ -16,7 +16,7 @@ ultima_chegada = 0.0
 tec_det = True
 ts_det = True
 num_cliente = 0
-servidor_em_atendimento = []
+lista_servidores = []
 tam_max_fila = float('inf')
 arr_entradas = []
 arr_fila = []
@@ -36,7 +36,7 @@ arr_tamanhos_fila = []
 arr_tamanhos_fila_mean = []
 
 def mostra_menu(estado = None):
-	global tec_det, ts_det, tam_max_fila, servidor_em_atendimento
+	global tec_det, ts_det, tam_max_fila, lista_servidores
 	print("\n\nMenu:")
 	while True:
 		print("A fila tem limite? [S/N]")
@@ -59,7 +59,7 @@ def mostra_menu(estado = None):
 			resp = int(input())
 			if(resp < 1 or resp > 9):
 				raise TypeError("Insira um valor entre 1 e 9")
-			servidor_em_atendimento = [False for i in range(0,resp)]
+			lista_servidores = [Servidor(i) for i in range(0,resp)]
 			break
 		except:
 			erro("Insira um valor entre 1 e 9.")
@@ -140,17 +140,12 @@ def distribuicao_exponencial(media):
 	return gera_classes_prob(aux)
 
 def servidores_ocupados():
-	for serv in servidor_em_atendimento:
-		if (serv == False):
-			return False
-	return True
+	return all(serv.em_atendimento == True for serv in lista_servidores)
 
 def atende_cliente(cliente):
-	global servidor_em_atendimento, cliente_em_atendimento, relogio_hs
-	servidor = servidor_em_atendimento.index(False)
-	servidor_em_atendimento[servidor] = True
-	tempo_servico = simula_evento(tipo = "saida")
-	cliente.registraAtendimento(servidor, tempo_servico)
+	global lista_servidores, cliente_em_atendimento, relogio_hs
+	servidor = np.random.choice([serv for serv in lista_servidores if serv.em_atendimento == False])
+	servidor.atende(cliente)
 	cliente_em_atendimento.append(cliente)
 	cliente_em_atendimento.sort(key = operator.attrgetter('saida'))
 	relogio_hs = cliente_em_atendimento[0].saida
@@ -179,10 +174,10 @@ def chegada():
 	relogio_hc = relogio + nova_chegada
 
 def saida():
-	global relogio, relogio_hs, servidor_em_atendimento, arr_fila,cliente_em_atendimento
+	global relogio, relogio_hs, lista_servidores, arr_fila, cliente_em_atendimento
 	if(len(cliente_em_atendimento) > 0):
 		cliente = cliente_em_atendimento.pop(0)
-		servidor_em_atendimento[cliente.servidor] = False
+		lista_servidores[cliente.servidor].finaliza_atendimento(cliente)
 		registra_evento(tipo="Saida", num_cliente=cliente.num_cliente, relogio=relogio_hs, chegada = cliente.chegada, saida=round(relogio_hs, 4)
 		, tempo_servico=round(cliente.tempo_servico,4), tempo_fila=round(relogio_hs-cliente.chegada-cliente.tempo_servico,4), servidor=cliente.servidor)
 	relogio = relogio_hs
@@ -209,7 +204,7 @@ def registra_evento(tipo, num_cliente, relogio, chegada, saida="", tempo_servico
 	arr_tempos_atendimento_mean.append(calcula_media(arr_tempos_atendimento_mean, ultimo_ts))
 	arr_tempos_atendimento.append(ultimo_ts)
 	arr_tempos_espera_mean.append(calcula_media(arr_tempos_espera_mean, ultimo_tf))
-	arr_tempos_espera.append(ultimo_tf)	
+	arr_tempos_espera.append(ultimo_tf)
 	arr_tempos_chegada_mean.append(calcula_media(arr_tempos_chegada_mean, ultimo_tec))
 	arr_tempos_chegada.append(ultimo_tec)
 	buffer_csv.append((round(relogio, 4), tipo, num_cliente, len(arr_fila), round(chegada,4), saida, tempo_servico, tempo_fila, servidor))
@@ -250,12 +245,12 @@ def despeja_csv():
 
 def atende():
 	if(relogio_hc < relogio_hs):
-		print("Chegada")
+		print("Chegada -- {}".format(relogio_hc))
 		chegada()
 	else:
-		print('Saida')
+		print('Saida -- {}'.format(relogio_hs))
 		saida()
-	print("Atendentes = ", ["Ocupado" if serv == True else "Livre" for serv in servidor_em_atendimento])
+	print("Atendentes = ", ["Ocupado" if serv.em_atendimento == True else "Livre" for serv in lista_servidores])
 	print("Clientes em atendimento = ", [cl.num_cliente for cl in cliente_em_atendimento])
 	print("Fila de atendimento = ", [cl.num_cliente for cl in arr_fila], "\n")
 
@@ -289,6 +284,23 @@ ax2 = plt.subplot2grid((10,2),(0,0), rowspan=4, colspan=1)
 ax3 = plt.subplot2grid((10,2),(0,1), rowspan=4, colspan=1)
 ax4 = plt.subplot2grid((10,2),(5,1), rowspan=6, colspan=1)
 
+class Servidor(object):
+	def __init__(self, num_servidor):
+		self.num_servidor = num_servidor
+		self.em_atendimento = False
+		self.tempo_trabalhado = 0.0
+	
+	def atende(self, cliente):
+		tempo_servico = simula_evento(tipo = "saida")
+		self.tempo_trabalhado += tempo_servico
+		self.em_atendimento = True
+		cliente.registraAtendimento(self.num_servidor, tempo_servico)
+
+	def finaliza_atendimento(self, cliente):
+		self.em_atendimento = False
+		
+
+
 class Cliente(object):
 	def __init__(self, num_cliente, chegada):
 		self.num_cliente = num_cliente
@@ -321,10 +333,21 @@ if __name__ == "__main__":
 	ani = animation.FuncAnimation(fig, animate, interval=100)
 	plt.show()
 	despeja_csv()
-	print("Tempo médio de atendimento =",arr_tempos_atendimento_mean[-1])
-	print("tamanho médio da fila =",arr_tamanhos_fila_mean[-1])
-	print("Tempo médio entre chegadas", arr_tempos_chegada_mean[-1])
-	print("Tempo médio de espera =", arr_tempos_espera_mean[-1])
+	print("\n-----------------------------------------------")
+	print("---------------- RELATÓRIO --------------------")
+	print("Tempo da simulação = {:.3f} ------------------".format(relogio))
+	print("Tempo médio de atendimento = {:.3f} ------------".format(arr_tempos_atendimento_mean[-1]))
+	print("tamanho médio da fila = {:.3f} -----------------".format(arr_tamanhos_fila_mean[-1]))
+	print("Tempo médio entre chegadas = {:.3f} ------------".format(arr_tempos_chegada_mean[-1]))
+	print("Tempo médio de espera = {:.3f} -----------------".format(arr_tempos_espera_mean[-1]))
+	print("Estatísticas dos servidores -------------------")
+	print("Servidor|  Tempo Ocioso | Tempo Trabalhado")
+	print("-----------------------------------------------")
+	for serv in lista_servidores:
+		print("{} \t| {:.3f} \t| {:.3f}\t".format(serv.num_servidor, relogio-serv.tempo_trabalhado, serv.tempo_trabalhado))
+		print("\t| {:.3f}% \t| {:.3f}%\t".format((relogio-serv.tempo_trabalhado)*100/relogio, serv.tempo_trabalhado*100/relogio))
+		print("-----------------------------------------------")
+	print("-----------------------------------------------")
 	print("Os resultados da simulação estão disponíveis no arquivo", nome_arquivo)
 	pass
 	
