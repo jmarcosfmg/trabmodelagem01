@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import os
 from datetime import datetime as dt
 import threading
 import operator
@@ -25,6 +26,7 @@ arr_prob_ts = []
 buffer_csv = []
 nome_arquivo = ""
 cliente_em_atendimento = []
+arr_relogio = []
 
 arr_tempos_espera = []
 arr_tempos_espera_mean = []
@@ -136,7 +138,6 @@ def distribuicao_exponencial(media):
 	s = np.random.uniform(size=200)
 	lambda_ = 1/media
 	aux = list(map(lambda b: -(np.log(1-b))/lambda_, s))
-	print(aux)
 	return gera_classes_prob(aux)
 
 def servidores_ocupados():
@@ -201,6 +202,7 @@ def registra_evento(tipo, num_cliente, relogio, chegada, saida="", tempo_servico
 		ultimo_tf = abs(float(tempo_fila))
 	if (tec != ""):
 		ultimo_tec = abs(float(tec))
+	arr_relogio.append(relogio)
 	arr_tempos_atendimento_mean.append(calcula_media(arr_tempos_atendimento_mean, ultimo_ts))
 	arr_tempos_atendimento.append(ultimo_ts)
 	arr_tempos_espera_mean.append(calcula_media(arr_tempos_espera_mean, ultimo_tf))
@@ -226,9 +228,11 @@ def verifica_limites_arrays():
 	verifica_tamanho(arr_tempos_espera_mean)
 	verifica_tamanho(arr_tempos_chegada)
 	verifica_tamanho(arr_tempos_chegada_mean)
+	verifica_tamanho(arr_relogio)
+	
 
 def verifica_tamanho(self):
-	if(len(self) > 150):
+	if(len(self) > 100):
 		self.pop(0)
 
 def despeja_csv():
@@ -243,7 +247,13 @@ def despeja_csv():
 		writer.writerows(buffer_csv)
 	buffer_csv.clear
 
+def regula_horario():
+	for serv in lista_servidores:
+		if(serv.em_atendimento == True):
+			serv.tempo_trabalhado += (relogio - serv.inicio_atendimento)
+
 def atende():
+	screen_clear()
 	if(relogio_hc < relogio_hs):
 		print("Chegada -- {}".format(relogio_hc))
 		chegada()
@@ -254,6 +264,14 @@ def atende():
 	print("Clientes em atendimento = ", [cl.num_cliente for cl in cliente_em_atendimento])
 	print("Fila de atendimento = ", [cl.num_cliente for cl in arr_fila], "\n")
 
+def screen_clear():
+   # for mac and linux(here, os.name is 'posix')
+   if os.name == 'posix':
+      _ = os.system('clear')
+   else:
+      # for windows platfrom
+      _ = os.system('cls')
+   # print out some text
 
 def animate(i):
 	ax1.clear()
@@ -280,39 +298,39 @@ def animate(i):
 style.use('fivethirtyeight')
 fig=plt.figure()
 ax1 = plt.subplot2grid((10,2),(5,0), rowspan=6, colspan=1)
-ax2 = plt.subplot2grid((10,2),(0,0), rowspan=4, colspan=1)
-ax3 = plt.subplot2grid((10,2),(0,1), rowspan=4, colspan=1)
-ax4 = plt.subplot2grid((10,2),(5,1), rowspan=6, colspan=1)
+ax2 = plt.subplot2grid((10,2),(0,0), rowspan=4, colspan=1, sharex=ax1)
+ax3 = plt.subplot2grid((10,2),(0,1), rowspan=4, colspan=1, sharex=ax1)
+ax4 = plt.subplot2grid((10,2),(5,1), rowspan=6, colspan=1, sharex=ax1)
 
 class Servidor(object):
 	def __init__(self, num_servidor):
 		self.num_servidor = num_servidor
 		self.em_atendimento = False
 		self.tempo_trabalhado = 0.0
+		self.inicio_atendimento = -1
 	
 	def atende(self, cliente):
-		tempo_servico = simula_evento(tipo = "saida")
-		self.tempo_trabalhado += tempo_servico
 		self.em_atendimento = True
-		cliente.registraAtendimento(self.num_servidor, tempo_servico)
+		self.inicio_atendimento = relogio
+		cliente.registraAtendimento(self.num_servidor)
 
 	def finaliza_atendimento(self, cliente):
 		self.em_atendimento = False
-		
-
+		self.tempo_trabalhado += relogio - self.inicio_atendimento
 
 class Cliente(object):
 	def __init__(self, num_cliente, chegada):
 		self.num_cliente = num_cliente
 		self.chegada = chegada
 	
-	def registraAtendimento(self, servidor, tempo_servico):
+	def registraAtendimento(self, servidor):
+		tempo_servico = simula_evento(tipo = "saida")
 		self.saida = relogio + tempo_servico
 		self.servidor = servidor
 		self.tempo_servico = tempo_servico
 
 class ThreadingExample(object):
-    def __init__(self, interval=1):
+    def __init__(self, interval=0.5):
         self.interval = interval
         thread = threading.Thread(target=self.run, args=())
         thread.daemon = True                            # Daemonize thread
@@ -333,14 +351,17 @@ if __name__ == "__main__":
 	ani = animation.FuncAnimation(fig, animate, interval=100)
 	plt.show()
 	despeja_csv()
+	regula_horario()
+	screen_clear()
 	print("\n-----------------------------------------------")
 	print("---------------- RELATÓRIO --------------------")
-	print("Tempo da simulação = {:.3f} ------------------".format(relogio))
-	print("Tempo médio de atendimento = {:.3f} ------------".format(arr_tempos_atendimento_mean[-1]))
-	print("tamanho médio da fila = {:.3f} -----------------".format(arr_tamanhos_fila_mean[-1]))
-	print("Tempo médio entre chegadas = {:.3f} ------------".format(arr_tempos_chegada_mean[-1]))
-	print("Tempo médio de espera = {:.3f} -----------------".format(arr_tempos_espera_mean[-1]))
+	print("Tempo da simulação = {:.3f} \t---------------".format(relogio))
+	print("Tempo médio de atendimento = {:.3f} \t-------".format(arr_tempos_atendimento_mean[-1]))
+	print("tamanho médio da fila = {:.3f} \t---------------".format(arr_tamanhos_fila_mean[-1]))
+	print("Tempo médio entre chegadas = {:.3f} \t-------".format(arr_tempos_chegada_mean[-1]))
+	print("Tempo médio de espera = {:.3f} \t---------------".format(arr_tempos_espera_mean[-1]))
 	print("Estatísticas dos servidores -------------------")
+	print("-----------------------------------------------")
 	print("Servidor|  Tempo Ocioso | Tempo Trabalhado")
 	print("-----------------------------------------------")
 	for serv in lista_servidores:
