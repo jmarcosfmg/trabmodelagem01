@@ -16,6 +16,8 @@ relogio_hs = float('inf')
 ultima_chegada = 0.0
 tec_det = True
 ts_det = True
+media_tec = None
+media_ts = None
 num_cliente = 0
 lista_servidores = []
 tam_max_fila = float('inf')
@@ -69,7 +71,12 @@ def mostra_menu(estado = None):
 	print("")
 
 def ler_det():
-	global arr_prob_tec, arr_prob_ts
+	global arr_prob_tec, arr_prob_ts, media_ts, media_tec
+	if(media_tec != None and media_ts != None):
+		arr_prob_tec = distribuicao_exponencial(media_tec)
+		arr_prob_ts = distribuicao_exponencial(media_ts)
+		return
+
 	warning("Os valores devem preenchidos usando o tempo.\nPor exemplo: Se 15 carros chegam por hora, o TEC deve ser 4 (se o tempo for contado em minutos) ou 0.06 (se for contado em horas)."+
 	"\n A escala de tempo deve ser a mesma no TEC e no TS.")
 	while(tec_det):
@@ -79,6 +86,8 @@ def ler_det():
 			if(valor_informado <= 0.0):
 				raise TypeError("Insira um número >= 0.") 
 			arr_prob_tec = distribuicao_exponencial(valor_informado)
+			imprime_tabela_prob(arr_prob_tec)
+			media_tec = valor_informado
 			break
 		except:
 			erro("O valor do TEC deve ser numérico e maior que 0.")	
@@ -90,6 +99,8 @@ def ler_det():
 			if(valor_informado <= 0.0):
 				raise TypeError("Insira um número >= 0.") 
 			arr_prob_ts = distribuicao_exponencial(valor_informado)
+			imprime_tabela_prob(arr_prob_ts)
+			media_ts = valor_informado
 			break
 		except:
 			erro("O valor do TS deve ser numérico e maior que 0.")
@@ -107,12 +118,14 @@ def gera_classes_prob(arr):
 	occour_arr.sort(key = lambda x: x[2])
 	for val in range(1, len(occour_arr)):
 		occour_arr[val][2] += occour_arr[val-1][2]
+	return occour_arr
+
+def imprime_tabela_prob(arr):
 	print("\nTabela de probabilidade acumulada:")
 	print("  Intervalo\t\t| Media  | Probabilidade Acumulada")
-	for pr in occour_arr:
+	for pr in arr:
 		print("[{:.4f}],[{:.4f}] \t| {:.4f} |\t {:.4f}".format(pr[0][0], pr[0][1], pr[1], pr[2]))
 	print("")
-	return occour_arr
 
 def simula_evento(tipo = None):
 	if(tipo == "chegada"):
@@ -211,6 +224,7 @@ def registra_evento(tipo, num_cliente, relogio, chegada, saida="", tempo_servico
 	arr_tempos_chegada.append(ultimo_tec)
 	buffer_csv.append((round(relogio, 4), tipo, num_cliente, len(arr_fila), round(chegada,4), saida, tempo_servico, tempo_fila, servidor))
 	if(len(buffer_csv) > 15):
+		ler_det()
 		despeja_csv()
 
 def calcula_media(arr, novoval):
@@ -236,7 +250,7 @@ def verifica_tamanho(self):
 		self.pop(0)
 
 def despeja_csv():
-	global nome_arquivo
+	global nome_arquivo, buffer_csv
 	if (nome_arquivo == ""):
 		nome_arquivo = "trabalho01_MS_" + dt.now().strftime("%d_%m_%Y__%H_%M_%S") +'.csv'
 		with open(nome_arquivo, 'w', newline='') as out_file:
@@ -245,7 +259,7 @@ def despeja_csv():
 	with open(nome_arquivo, 'a', newline='') as out_file:
 		writer = csv.writer(out_file)
 		writer.writerows(buffer_csv)
-	buffer_csv.clear
+	buffer_csv = []
 
 def regula_horario():
 	for serv in lista_servidores:
@@ -330,7 +344,7 @@ class Cliente(object):
 		self.tempo_servico = tempo_servico
 
 class ThreadingExample(object):
-    def __init__(self, interval=0.5):
+    def __init__(self, interval=0.3):
         self.interval = interval
         thread = threading.Thread(target=self.run, args=())
         thread.daemon = True                            # Daemonize thread
@@ -348,7 +362,7 @@ if __name__ == "__main__":
 	mostra_menu()
 	ler_det()
 	t = ThreadingExample()
-	ani = animation.FuncAnimation(fig, animate, interval=100)
+	ani = animation.FuncAnimation(fig, animate, interval=500)
 	plt.show()
 	despeja_csv()
 	regula_horario()
